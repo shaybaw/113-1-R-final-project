@@ -1,1 +1,328 @@
+library(tidyverse)
 
+# 設定檔案路徑
+file_path <- "data/3-16.csv"
+
+# 使用 read_csv 導入資料
+data <- readr::read_csv(file_path)
+
+# 查看資料結構
+glimpse(data)
+
+# 將3-16.csv檔案讀取進來
+file_path <- "data/3-16.csv"
+data <- readr::read_csv(file_path)
+
+view(data)
+
+# 創建一個新欄位以提取基金名稱的前兩個字，並按此排序
+new <- data |>
+  mutate(name_prefix = stringr::str_sub(`基金名稱`, 1, 2)) |>
+  arrange(name_prefix) |>
+  select(-name_prefix) # 排序完成後移除輔助欄位
+
+# 查看新結果
+glimpse(new)
+view(new)
+
+# 若需要將結果另存為新的CSV檔案：
+readr::write_csv(new, "data/3-16_sorted.csv")
+
+# 篩選基金名稱中包含 'DWS 投資' 的資料
+DWL_all <- new |>
+  dplyr::filter(stringr::str_detect(`基金名稱`, "DWS 投資"))
+
+# 查看篩選結果
+glimpse(DWL_all)
+
+# 若需要將結果另存為新的CSV檔案：
+readr::write_csv(DWL_all, "data/DWL_all.csv")
+view(DWL_all)
+
+
+# 篩選基金名稱包含 'DWS 投資' 且 基金種類為 '股票型'
+DWS_股 <- new |>
+  dplyr::filter(
+    stringr::str_detect(`基金名稱`, "DWS 投資"),
+    `基金種類` == "股票型"
+  )
+
+# 查看篩選結果
+glimpse(DWS_股)
+View(DWS_股)
+
+# 若需要將結果另存為新的CSV檔案：
+readr::write_csv(DWS_股, "data/DWS_股.csv")
+
+#篩選基金名稱包含 'DWS 投資' 且 基金種類為 '固定收益'
+DWS_固 <- new |>
+  dplyr::filter(stringr::str_detect(`基金名稱`, "DWS 投資")) |>
+  dplyr::filter(`基金種類` == "固定收益型")
+
+# 查看篩選結果
+glimpse(DWS_固)
+View(DWS_固)
+
+# 若需要將結果另存為新的CSV檔案：
+readr::write_csv(DWS_固, "data/DWS_固.csv")
+
+#將"DWS_股"中的"最新淨值"欄位由大到小排序
+DWS_股 <- DWS_股 |>
+  dplyr::arrange(dplyr::desc(`最新淨值`))
+
+# 查看排序後的所有資料
+View(DWS_股)
+# 顯示所有排序後的 "最新淨值"
+print(DWS_股$`最新淨值`)
+
+#"DWS_股"(排序後)的淨值化成柱狀圖 X為基金代碼Y為最新淨值
+library(ggplot2)
+
+DWS_股 |>
+  ggplot(aes(x = `基金代碼`, y = `最新淨值`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "DWS_股 基金淨值柱狀圖", x = "基金代碼", y = "最新淨值") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# 將 "最新淨值" 欄位由大到小排序
+DWS_固 <- DWS_固 |>
+  dplyr::arrange(dplyr::desc(`最新淨值`))
+
+# 檢查排序後的 "最新淨值" 欄位
+head(DWS_固$`最新淨值`)
+
+# 顯示排序後的所有 "最新淨值"
+print(DWS_固$`最新淨值`)
+
+#"DWS_固"的淨值化成柱狀圖 X為基金代碼Y為最新淨值
+library(ggplot2)
+
+DWS_固 |>
+  ggplot(aes(x = `基金代碼`, y = `最新淨值`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "DWS_固 基金淨值柱狀圖", x = "基金代碼", y = "最新淨值") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# 合併兩個資料框並加入類別欄位
+DWS_combined <- dplyr::bind_rows(
+  DWS_股 |> mutate(類別 = "股"),
+  DWS_固 |> mutate(類別 = "固")
+)
+#檢查結果
+glimpse(DWS_combined)
+View(DWS_combined)
+
+# 繪製柱狀圖
+ggplot(DWS_combined, aes(x = `基金代碼`, y = `最新淨值`, fill = 類別)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "DWS_股與DWS_固 最新淨值差異", x = "基金代碼", y = "最新淨值") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+#"DWL_股""DWL_固"的最新淨值差異(箱型圖，小提琴圖)---AI
+
+ggplot(DWS_combined, aes(x = 類別, y = `最新淨值`, fill = 類別)) +
+  geom_boxplot() +
+  labs(title = "DWS_股與DWS_固 最新淨值分布", x = "類別", y = "最新淨值")
+
+ggplot(DWS_combined, aes(x = 類別, y = `最新淨值`, fill = 類別)) +
+  geom_violin() +
+  labs(title = "DWS_股與DWS_固 最新淨值小提琴圖", x = "類別", y = "最新淨值")
+
+
+# 計算 DWS_股 的最新淨值總和
+sum_DWS_股 <- DWS_股 |>
+  dplyr::summarize(最新淨值總和 = sum(`最新淨值`, na.rm = TRUE))
+
+# 計算 DWS_固 的最新淨值總和
+sum_DWS_固 <- DWS_固 |>
+  dplyr::summarize(最新淨值總和 = sum(`最新淨值`, na.rm = TRUE))
+
+# 顯示結果
+sum_DWS_股
+sum_DWS_固
+
+
+
+# 計算 DWS_股 的最新淨值欄位數
+count_DWS_股 <- DWS_股 |>
+  dplyr::summarize(最新淨值欄位數 = n())
+
+# 計算 DWS_固 的最新淨值欄位數
+count_DWS_固 <- DWS_固 |>
+  dplyr::summarize(最新淨值欄位數 = n())
+
+# 顯示結果
+count_DWS_股
+count_DWS_固
+
+
+
+# 計算 DWS_股 的最新淨值平均值
+mean_DWS_股 <- DWS_股 |>
+  dplyr::summarize(平均最新淨值 = mean(`最新淨值`, na.rm = TRUE))
+
+# 計算 DWS_固 的最新淨值平均值
+mean_DWS_固 <- DWS_固 |>
+  dplyr::summarize(平均最新淨值 = mean(`最新淨值`, na.rm = TRUE))
+
+# 顯示結果
+mean_DWS_股
+mean_DWS_固
+
+
+
+
+# 篩選 "基金名稱" 欄位包含 "GAM Star" 的資料
+GAM_Star_all <- new |>
+  dplyr::filter(grepl("GAM Star", `基金名稱`))
+
+# 顯示篩選結果
+glimpse(GAM_Star_all)
+view(GAM_Star_all)
+
+# 從 GAM_Star_all 中篩選出基金種類為 股票型 的資料
+GAM_Star_股票型 <- GAM_Star_all |>
+  dplyr::filter(`基金種類` == "股票型")
+
+# 顯示篩選結果
+glimpse(GAM_Star_股票型)
+View(GAM_Star_股票型)
+
+
+
+# 從 GAM_Star_all 中篩選出基金種類為 固定收益型 的資料
+GAM_Star_固定收益 <- GAM_Star_all |>
+  dplyr::filter(`基金種類` == "固定收益型")
+
+# 顯示篩選結果
+glimpse(GAM_Star_固定收益)
+View(GAM_Star_固定收益)
+
+
+# 篩選出基金種類為 股票型 並依最新淨值由大到小排序
+GAM_Star_股票型_sorted <- GAM_Star_all |>
+  dplyr::filter(`基金種類` == "股票型") |>
+  dplyr::arrange(desc(`最新淨值`))
+
+# 顯示結果
+print(GAM_Star_股票型$`最新淨值`)
+
+
+# 篩選出基金種類為 股票型 的資料，並計算最新淨值的總和與平均值
+summary_GAM_Star_股票型 <- GAM_Star_all |>
+  dplyr::filter(`基金種類` == "股票型") |>
+  dplyr::summarize(
+    總和 = sum(`最新淨值`, na.rm = TRUE),
+    平均值 = mean(`最新淨值`, na.rm = TRUE)
+  )
+
+# 顯示結果
+print(summary_GAM_Star_股票型)
+
+# 繪製柱狀圖，X為基金代碼，Y為最新淨值
+ggplot(GAM_Star_all, aes(x = `基金代碼`, y = `最新淨值`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "GAM Star All - 基金代碼 vs 最新淨值", 
+       x = "基金代碼", 
+       y = "最新淨值") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# 篩選 "基金名稱" 欄位包含 "M&G" 的資料
+M_G_all <- new |>
+  dplyr::filter(grepl("M&G", `基金名稱`))
+
+# 顯示篩選結果
+glimpse(M_G_all)
+
+
+# 從 M_G_all 中篩選出 "基金種類" 為 "股票型" 的資料
+M_G_股 <- M_G_all |>
+  dplyr::filter(`基金種類` == "股票型")
+
+# 從 M_G_all 中篩選出 "基金種類" 為 "固定收益型" 的資料
+M_G_固 <- M_G_all |>
+  dplyr::filter(`基金種類` == "固定收益型")
+
+# 顯示篩選結果
+glimpse(M_G_股)
+glimpse(M_G_固)
+view(M_G_股)
+view(M_G_固)
+
+
+# 對 M_G_股 中的最新淨值由大到小排序
+M_G_股_sorted <- M_G_股 |>
+  dplyr::arrange(desc(`最新淨值`))
+
+# 對 M_G_固 中的最新淨值由大到小排序
+M_G_固_sorted <- M_G_固 |>
+  dplyr::arrange(desc(`最新淨值`))
+
+# 顯示排序後的結果
+print(M_G_股$`最新淨值`)
+print(M_G_固$`最新淨值`)
+
+
+# 計算 M_G_股 的最新淨值總和、欄位總數和平均數值
+summary_M_G_股 <- M_G_股 |>
+  dplyr::summarize(
+    總和 = sum(`最新淨值`, na.rm = TRUE),
+    欄位總數 = n(),
+    平均值 = mean(`最新淨值`, na.rm = TRUE)
+  )
+
+# 計算 M_G_固 的最新淨值總和、欄位總數和平均數值
+summary_M_G_固 <- M_G_固 |>
+  dplyr::summarize(
+    總和 = sum(`最新淨值`, na.rm = TRUE),
+    欄位總數 = n(),
+    平均值 = mean(`最新淨值`, na.rm = TRUE)
+  )
+
+# 顯示結果
+print(summary_M_G_股)
+print(summary_M_G_固)
+
+
+# 繪製 M_G_固 的柱狀圖，X為基金代碼，Y為最新淨值
+ggplot(M_G_固, aes(x = `基金代碼`, y = `最新淨值`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "M&G 固 - 基金代碼 vs 最新淨值", 
+       x = "基金代碼", 
+       y = "最新淨值") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+# 繪製 M_G_固 的柱狀圖，X為基金代碼，Y為最新淨值
+ggplot(M_G_固, aes(x = `基金代碼`, y = `最新淨值`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "M&G 固 - 基金代碼 vs 最新淨值", 
+       x = "基金代碼", 
+       y = "最新淨值") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+# 繪製 M_G_股 的柱狀圖，X為基金代碼，Y為最新淨值
+ggplot(M_G_股, aes(x = `基金代碼`, y = `最新淨值`)) +
+  geom_bar(stat = "identity") +
+  labs(title = "M&G 股 - 基金代碼 vs 最新淨值", 
+       x = "基金代碼", 
+       y = "最新淨值") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+# 合併 M_G_股 和 M_G_固 的資料，並為每個資料框新增一個標籤欄位
+M_G_combined <- dplyr::bind_rows(
+  M_G_股 |> dplyr::mutate(基金類別 = "股"),
+  M_G_固 |> dplyr::mutate(基金類別 = "固")
+)
+
+# 繪製柱狀圖，顯示每個基金代碼對應的最新淨值
+ggplot(M_G_combined, aes(x = `基金代碼`, y = `最新淨值`, fill = 基金類別)) +
+  geom_bar(stat = "identity") +
+  labs(title = "M&G 股與固 基金代碼對應的最新淨值", 
+       x = "基金代碼", 
+       y = "最新淨值") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
